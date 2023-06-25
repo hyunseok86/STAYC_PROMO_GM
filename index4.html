@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>슈팅 게임</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <style>
+        #gameCanvas {
+            border: 1px solid black;
+        }
+        body {
+        overflow: hidden;
+        height: 100%;
+        }
+        #canvas-container {
+        width: 100%;
+        text-align:center;
+        }
+        canvas {
+        display: inline;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas"></canvas>
+
+
+<script>
+    // 캔버스 요소 가져오기
+    var canvas = document.getElementById("gameCanvas");
+
+    // 캔버스 크기 설정
+    // canvas.width = window.innerWidth;
+    // canvas.height = window.innerHeight;
+    canvas.width = 400
+    canvas.height = 600
+
+    // 그래픽 컨텍스트 가져오기
+    var context = canvas.getContext("2d");
+
+    // 플레이어 정보
+    var playerSize = 50;
+    var playerX = canvas.width / 2 - playerSize / 2;
+    var playerY = canvas.height - playerSize - 10;
+    var playerSpeed = 6;
+
+    // 터치 이벤트 처리
+    var isTouching = false;
+    var touchX = 0;
+
+    canvas.addEventListener("touchstart", function(event) {
+        isTouching = true;
+        touchX = event.touches[0].clientX;
+    });
+
+    canvas.addEventListener("touchmove", function(event) {
+        if (isTouching) {
+            var newTouchX = event.touches[0].clientX;
+            var deltaX = newTouchX - touchX;
+
+            playerX += deltaX;
+            touchX = newTouchX;
+        }
+    });
+
+
+    // 게임 루프
+    var lastFrameTime = 0;
+    var frameInterval = 1000 / 60; // 30 FPS (프레임당 경과 시간)
+
+    // 미사일 정보
+    var missileRadius = 10;
+    var missileSpeed = 5; // 미사일 속도 조절
+    var missileCooldown = 800; // 미사일 발사 간격 (2초)
+    var lastMissileTime = 0;
+    var missiles = [];
+
+    // 적 정보
+    var enemyWidth = 30;
+    var enemyHeight = 30;
+    var enemySpeed = 2;
+    var enemyCooldown = 3000; // 적 생성 간격 (2초)
+    var enemyMissileCooldown = 2000; // 적 미사일 발사 간격
+    var enemies = [];
+    var enemyMissiles = [];
+    var lastEnemyTime = 0;
+    var isMovingDown = true; // 적 이동 방향 플래그
+    var enemyMoveDistance = 40; // 적 이동 거리
+    
+
+
+    function gameLoop(timestamp) { //################# Game Loop ######################
+        // 경과 시간 계산
+        var deltaTime = timestamp - lastFrameTime;
+        lastFrameTime = timestamp;
+
+        // 프레임 제어
+        if (deltaTime < frameInterval) {
+            // 경과 시간이 프레임 간격보다 작으면 다음 프레임으로 넘어가지 않음
+            requestAnimationFrame(gameLoop);
+            return;
+        }
+
+        // 플레이어 이동
+        if (playerX < 0) {
+            playerX = 0;
+        } else if (playerX > canvas.width - playerSize) {
+            playerX = canvas.width - playerSize;
+        }
+
+
+
+        // 화면 지우기
+        context.clearRect(0, 0, canvas.width, canvas.height);
+
+        // 플레이어 그리기
+        context.fillStyle = "blue";
+        context.fillRect(playerX, playerY, playerSize, playerSize);
+
+        // 미사일 그리기 및 이동
+        for (var i = 0; i < missiles.length; i++) {
+            var missile = missiles[i];
+            context.fillStyle = "blue";
+            context.beginPath();
+            context.arc(missile.x, missile.y, missileRadius, 0, 2 * Math.PI);
+            context.fill();
+            missile.y -= missileSpeed; // 미사일 속도 적용
+
+            // 화면을 벗어난 미사일 제거
+            if (missile.y < 0) {
+                missiles.splice(i, 1);
+                i--;
+            }
+        }
+
+        // 적 미사일 그리기 및 이동
+        for (var j = 0; j < enemyMissiles.length; j++) {
+            var enemyMissile = enemyMissiles[j];
+            context.fillStyle = "red";
+            context.beginPath();
+            context.arc(enemyMissile.x, enemyMissile.y, enemyMissile.radius, 0, 2 * Math.PI);
+            context.fill();
+
+            // 적 미사일 이동
+            var dx = Math.cos(enemyMissile.angle) * enemyMissile.speed;
+            var dy = Math.sin(enemyMissile.angle) * enemyMissile.speed;
+            enemyMissile.x += dx;
+            enemyMissile.y += dy;
+
+            // 화면을 벗어난 적 미사일 제거
+            if (
+                enemyMissile.x < 0 ||
+                enemyMissile.x > canvas.width ||
+                enemyMissile.y < 0 ||
+                enemyMissile.y > canvas.height
+            ) {
+                enemyMissiles.splice(j, 1);
+                j--;
+            }
+        }
+
+        // 적 그리기 및 이동
+        for (var i = 0; i < enemies.length; i++) {
+            var enemy = enemies[i];
+            context.fillStyle = "red";
+            context.fillRect(enemy.x, enemy.y, enemyWidth, enemyHeight);
+
+            // 적 이동
+            if (isMovingDown) {
+                enemy.x += enemySpeed;
+            } else {
+                enemy.x -= enemySpeed;
+            }
+
+            //대각선 이동
+            if (isMovingDown) {
+                enemy.y += enemySpeed;
+            } else {
+                enemy.y -= enemySpeed;
+            }
+
+            // 적이 캔버스 가장자리에 도달하면 방향 전환 및 이동
+            if (enemy.x + enemyWidth >= canvas.width || enemy.x <= 0) {
+                isMovingDown = !isMovingDown;
+                enemy.y += enemyMoveDistance;
+            }
+
+            
+
+
+            // 적과 미사일 충돌 감지
+            for (var j = 0; j < missiles.length; j++) {
+                var missile = missiles[j];
+                if (
+                    missile.x > enemy.x &&
+                    missile.x < enemy.x + enemyWidth &&
+                    missile.y > enemy.y &&
+                    missile.y < enemy.y + enemyHeight
+                ) {
+                    // 미사일과 적이 충돌하면 미사일과 적을 제거
+                    missiles.splice(j, 1);
+                    j--;
+                    enemies.splice(i, 1);
+                    i--;
+                    break;
+                }
+            }
+
+            // 시간 기반 적 미사일 발사
+            var currentTime = performance.now();
+            console.log(currentTime - lastEnemyTime > enemyMissileCooldown);
+            if (currentTime - lastEnemyTime > enemyMissileCooldown) {
+                createEnemyMissile(enemy.x + enemyWidth / 2, enemy.y + enemyHeight, playerX + playerSize / 2, playerY + playerSize / 2);
+                lastEnemyTime = currentTime;
+            }
+        }
+
+
+        // 시간 기반 미사일 발사
+        var currentTime = performance.now();
+        if (currentTime - lastMissileTime > missileCooldown) {
+            createMissile();
+            lastMissileTime = currentTime;
+        }
+
+        // 시간 기반 적 생성
+        if (currentTime - lastEnemyTime > enemyCooldown) {
+            createEnemy();
+            lastEnemyTime = currentTime;
+        }
+          // 시간 기반 적 미사일 발사
+        if (currentTime - lastEnemyTime > enemyCooldown) {
+            createEnemyMissile(enemy.x + enemyWidth / 2, enemy.y + enemyHeight, playerX + playerSize / 2, playerY);
+            lastEnemyTime = currentTime;
+        }
+
+
+
+        // 게임 루프 재귀 호출
+        requestAnimationFrame(gameLoop);
+    }
+
+    // 새로운 미사일 생성
+    function createMissile() {
+        var missile = {
+            x: playerX + playerSize / 2, // 플레이어 중앙에서 발사되도록 수정
+            y: playerY,
+        };
+        missiles.push(missile);
+    }
+
+    // 적 생성
+    function createEnemy() {
+        var enemy = {
+            x: Math.random() * (canvas.width - enemyWidth),
+            y: -enemyHeight,
+        };
+        enemies.push(enemy);
+    }
+
+    // 적 미사일 생성
+    function createEnemyMissile(startX, startY, targetX, targetY) {
+        console.log('createEnemyMissile')
+        var angle = Math.atan2(targetY - startY, targetX - startX);
+        var missile = {
+            x: startX + enemyWidth / 2,
+            y: startY,
+            angle: angle,
+            speed: 8, // 적 미사일 속도 조절
+            radius: 10,
+        };
+        enemyMissiles.push(missile);
+    }
+
+    // 게임 루프 시작
+    requestAnimationFrame(gameLoop);
+</script>
+</body>
+</html>
