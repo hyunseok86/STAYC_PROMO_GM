@@ -1,11 +1,134 @@
 <!DOCTYPE html>
 <html>
-    <head>
-        <meta charset="utf-8">
-        <title>Buble</title>
-    </head>
-    <body>
-        <canvas id="canvas"></canvas>
-        <script src="main.js"></script>
-    </body>
+<head>
+    <title>슈팅 게임</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <style>
+        #gameCanvas {
+            border: 1px solid black;
+        }
+        body {
+        overflow: hidden;
+        height: 100%;
+        background-image: url("http://127.0.0.1:3000/background.jpeg");
+        background-repeat: no-repeat;
+        background-size: cover;
+        }
+        #canvas-container {
+        width: 100%;
+        text-align:center;
+        }
+        canvas {
+        display: inline;
+        }
+    </style>
+</head>
+<body>
+    <div id="fpsDisplay"></div>
+    <canvas id="gameCanvas"></canvas>
+    <script src="main.js"></script>
+    <script src="player.js"></script>
+    <script src="missile.js"></script>
+
+<script>
+
+    // function setBackground(){
+    //     var image = new Image();
+    //     image.onload = function() {
+    //         context.drawImage(image, 0, 0, canvas.width, canvas.height);
+    //     }
+    //     image.src = "http://127.0.0.1:3000/background.jpeg";
+    // }
+
+    let CONFIG = {
+        BASE_SPEED : 4,
+        ENEMY_SPEED : 1,
+        MISSAILE_SPEED : 8,
+        LAST_FRAME_TIME : 0,
+        FRAME_INTERVAL : 1000 / 60,
+        enemies : [],
+        missiles : []
+    }
+
+
+    // 캔버스 요소 가져오기
+    var canvas = document.getElementById("gameCanvas");
+    // 그래픽 컨텍스트 가져오기
+    let ctx = canvas.getContext("2d");
+    const player = new Player();
+    player.startAutoShoot();
+    initCanvasSize();
+
+
+     // 터치 이벤트 처리
+    canvas.addEventListener("touchstart", (event) => {
+        player.isTouching = true;
+        player.touchX = event.touches[0].clientX;
+    });
+    canvas.addEventListener("touchmove", (event) => {
+        if (player.isTouching) {
+            var newTouchX = event.touches[0].clientX;
+            var deltaX = newTouchX - player.touchX;
+            player.x += deltaX;
+            player.touchX = newTouchX;
+        }
+    });
+
+    let backgroundImage, playerImage, bulletImage, enemyImage, gameOverImage;
+    function loadImage(){
+        backgroundImage = new Image();
+    }
+
+    function missileMoveDrowAndMove(){
+        if (CONFIG.missiles.length > 0) {
+            for (const missile of CONFIG.missiles) {
+                missile.move();
+                missile.draw();
+
+                // 미사일이 화면을 벗어나면 제거
+                if (missile.y < 0) {
+                    const index = CONFIG.missiles.indexOf(missile);
+                    if (index > -1) {
+                        CONFIG.missiles.splice(index, 1);
+                        
+                    }
+                    console.log('missiles',CONFIG.missiles)
+                }
+            }
+        }
+    } 
+
+
+
+    
+    
+
+    const gameLoop = (timestamp) => { //################# Game Loop ######################
+        // 경과 시간 계산
+        var deltaTime = timestamp - CONFIG.LAST_FRAME_TIME;
+        // 프레임 제어
+        if (deltaTime < CONFIG.FRAME_INTERVAL) {
+            // 경과 시간이 프레임 간격보다 작으면 다음 프레임으로 넘어가지 않음
+            // ctx.clearRect(0, 0, canvas.width, canvas.height);
+            requestAnimationFrame(gameLoop);
+            return;
+        }
+
+        // 화면 지우기
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        //플레이어 그리기
+        player.drow();
+
+        missileMoveDrowAndMove()
+
+        CONFIG.LAST_FRAME_TIME = timestamp;
+        requestAnimationFrame(gameLoop);
+    }
+
+    // 게임 루프 시작
+    requestAnimationFrame(gameLoop);
+window.addEventListener('resize', initCanvasSize);
+</script>
+</body>
 </html>
