@@ -10,7 +10,7 @@
         body {
         overflow: hidden;
         height: 100%;
-        background-image: url("http://127.0.0.1:3000/background.jpeg");
+        background-image: url("/background2.png");
         background-repeat: no-repeat;
         background-size: cover;
         }
@@ -29,6 +29,7 @@
     <script src="main.js"></script>
     <script src="player.js"></script>
     <script src="missile.js"></script>
+    <script src="enemy.js"></script>
 
 <script>
 
@@ -40,6 +41,14 @@
     //     image.src = "http://127.0.0.1:3000/background.jpeg";
     // }
 
+    let playerImage,  enemyImage, gameOverImage;
+    const loadImage = () => {
+        playerImage = new Image();
+        playerImage.src = "player2.png"
+    }
+
+    loadImage();
+
     let CONFIG = {
         BASE_SPEED : 4,
         ENEMY_SPEED : 1,
@@ -47,7 +56,7 @@
         LAST_FRAME_TIME : 0,
         FRAME_INTERVAL : 1000 / 60,
         enemies : [],
-        missiles : []
+        missiles : [],
     }
 
 
@@ -56,6 +65,7 @@
     // 그래픽 컨텍스트 가져오기
     let ctx = canvas.getContext("2d");
     const player = new Player();
+    const enemy = new Enemy(); //적
     player.startAutoShoot();
     initCanvasSize();
 
@@ -74,12 +84,9 @@
         }
     });
 
-    let backgroundImage, playerImage, bulletImage, enemyImage, gameOverImage;
-    function loadImage(){
-        backgroundImage = new Image();
-    }
+    
 
-    function missileMoveDrowAndMove(){
+    const missileMoveDrowAndMove = () => {
         if (CONFIG.missiles.length > 0) {
             for (const missile of CONFIG.missiles) {
                 missile.move();
@@ -98,10 +105,14 @@
         }
     } 
 
+    const clamp = (value, min, max) => {
+        return Math.min(Math.max(value, min), max);
+    };
+    const updatePlayerPosition = () => {
+        player.x = clamp(player.x, 0, canvas.width - player.width);
+        player.y = clamp(player.y, 0, canvas.height - player.height);
+    };
 
-
-    
-    
 
     const gameLoop = (timestamp) => { //################# Game Loop ######################
         // 경과 시간 계산
@@ -119,11 +130,20 @@
 
         //플레이어 그리기
         player.drow();
+        enemy.draw();
+        // 적 생성
+        enemy.spawnEnemy(timestamp);
+        // 적 이동
+        enemy.moveDown();
 
         missileMoveDrowAndMove()
+        player.handleCollision();
+        updatePlayerPosition();
 
         CONFIG.LAST_FRAME_TIME = timestamp;
         requestAnimationFrame(gameLoop);
+
+        
     }
 
     // 게임 루프 시작

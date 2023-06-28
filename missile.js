@@ -4,7 +4,15 @@ class Missile {
         this.speed = CONFIG.MISSAILE_SPEED;
         this.x = x;
         this.y = y;
+        this.bulletImage = new Image();
     }
+
+    initImage(){
+        this.bulletImage.src = "buble.png";
+    }
+    
+
+
 
     move() {
         this.y -= this.speed;
@@ -20,10 +28,23 @@ class Missile {
     draw() {
         ctx.save();
         const missileSize = this.size * player.level; // 플레이어 레벨에 따라 미사일 크기를 조절합니다.
-        ctx.fillStyle = "blue";
         ctx.beginPath();
-        ctx.arc(this.x, this.y, missileSize / 2, 0, Math.PI * 2);
+        ctx.drawImage(this.bulletImage, this.x - missileSize / 2,this.y, missileSize * 1.5, missileSize * 1.5);
         ctx.fill();
         ctx.restore(); // 그래픽 컨텍스트 상태 복원
     }
+
+    // draw() {
+    //     ctx.save();
+    //     const missileSize = this.size * player.level; // 플레이어 레벨에 따라 미사일 크기를 조절합니다.
+    //     ctx.fillStyle = "blue";
+    //     ctx.beginPath();
+    //     ctx.arc(this.x, this.y, missileSize / 2, 0, Math.PI * 2);
+    //     // ctx.drawImage(bulletImage, this.x, this.y, missileSize / 2, 0, Math.PI * 2);
+    //     // ctx.drawImage(this.bulletImage, this.x,this.y, missileSize / 2, 0);
+    //     ctx.fill();
+    //     ctx.restore(); // 그래픽 컨텍스트 상태 복원
+    // }
+
+    
 }
