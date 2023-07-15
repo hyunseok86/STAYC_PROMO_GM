@@ -26,6 +26,9 @@
             line-height: 110%; /* 22px */
             letter-spacing: -2px;
         }
+        #gameCanvas {
+            background-color: transparent;
+        }
     </style>
 </head>
 <body>
@@ -36,51 +39,381 @@
     <audio id="shoot-sound" autoplay src="/assets/buble.mp3"></audio>
 
 <script>
-const backgroundColor = '#CC65F3'
-
+const member = localStorage.getItem("member")+'.png';
 // 캔버스 요소 가져오기
 var canvas = document.getElementById("gameCanvas");
-
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
 
 // 그래픽 컨텍스트 가져오기
-var context = canvas.getContext("2d");
-
+var ctx = canvas.getContext("2d");
 // 캔버스 크기 설정
-canvas.width = 1200;
-canvas.height = 1200;
 
-// 격자 무늬의 셀 크기
-var gridSize = 30;
-
-// 격자 무늬 그리기
-context.fillStyle = backgroundColor;
-context.fillRect(0, 0, canvas.width, canvas.height);
-context.strokeStyle = "white";
-context.lineWidth = 0.5;
-
-// 캔버스의 중앙 좌표 계산
-var centerX = canvas.width / 2;
-var centerY = canvas.height / 2;
-
-// 중앙 기준으로 격자 그리기
-var startX = centerX % gridSize;
-var startY = centerY % gridSize;
-
-// 수평 라인 그리기
-for (var y = startY; y < canvas.height; y += gridSize+1) {
-    context.beginPath();
-    context.moveTo(0, y);
-    context.lineTo(canvas.width, y);
-    context.stroke();
+let CONFIG = {
+    FRAME_INTERVAL:60,
+    missiles:[],
+    shootInterval:500,
+    countdown:3, // 시작 전 카운트다운 값
+    isCountdown:true, // 카운트다운 중 여부
+    score:0,
+    isFacingRight:false,
+    levelUpTime: 30 * 1000,
+    enemies:[],
+    enemySpeed:2,
+    enemyResponeTime:1500,
+    gameOver:false
 }
 
-// 수직 라인 그리기
-for (var x = startX; x < canvas.width; x += gridSize) {
-    context.beginPath();
-    context.moveTo(x, 0);
-    context.lineTo(x, canvas.height);
-    context.stroke();
+let memberImage;
+let missileImage;
+let heartImage;
+let enemyImages = [];
+let explosionImage;
+
+imageLoad = () => {
+    memberImage = new Image();
+    memberImage.src =`/assets/members/sumin.png`
+
+    missileImage = new Image();
+    missileImage.src =`/assets/buble50.png`
+
+    heartImage = new Image();
+    heartImage.src = "/assets/heart.png";
+
+    const enemyImage1 = new Image();
+    enemyImage1.src = "/assets/enemies/emoji1.png";
+    const enemyImage2 = new Image();
+    enemyImage2.src = "/assets/enemies/emoji2.png";
+    const enemyImage3 = new Image();
+    enemyImage3.src = "/assets/enemies/emoji3.png";
+
+    explosionImage = new Image();
+    explosionImage.src = "/assets/bubleExplosion.png";
+
+    enemyImages.push(enemyImage1)
+    enemyImages.push(enemyImage2)
+    enemyImages.push(enemyImage3)
 }
+imageLoad();
+
+
+let playerX = (canvas.width/2) - memberImage.width/2; 
+let playerY = canvas.height - memberImage.height - 30;
+let playerIsTouching = false;
+let playerTouchX = 0;
+const playerSpeed = 5;
+const heartWidth = 20;
+const heartHeight = 20;
+const maxLives = 3;
+let lives = maxLives;
+
+console.log('playerY', canvas.height, playerY , memberImage.height)
+
+const renderPlayer = () => {
+    // ctx.drawImage(memberImage, playerX, playerY)
+
+    if(memberImage.height===0){
+        playerX = (canvas.width/2) - memberImage.width/2; 
+        playerY = canvas.height - memberImage.height - 30;
+    }
+
+        // 이미지 반전 여부에 따라 그리기 상태 변환
+        if (!CONFIG.isFacingRight) {
+            ctx.save(); // 현재의 그리기 상태 저장
+            ctx.scale(-1, 1); // X 축 방향으로 반전
+            ctx.drawImage(memberImage, -playerX - memberImage.width, playerY);
+            ctx.restore(); // 이전의 그리기 상태 복원
+        } else {
+            ctx.drawImage(memberImage, playerX, playerY);
+        }
+
+
+}
+const renderLives = () => {
+    for (let i = 0; i < lives; i++) {
+        ctx.drawImage(heartImage, 10 + i * (heartWidth + 10), 10, heartWidth, heartHeight);
+    }
+};
+const renderScore = () => {
+    ctx.fillStyle = "white";
+    ctx.font = "24px Arial";
+    ctx.fillText(`${CONFIG.score}`, canvas.width - 10, 30);
+    ctx.textAlign = "right";
+};
+const renderCountdown = () => {
+    const fontSize = 48;
+    ctx.fillStyle = "white";
+    ctx.font = `${fontSize}px Arial`;
+    ctx.fillText(CONFIG.countdown, canvas.width / 2, canvas.height / 2);
+};
+
+const updatePlayerPosition = (event) => {
+  if (playerIsTouching) {
+    var newTouchX = event.touches[0].clientX;
+    var deltaX = newTouchX - playerTouchX;
+
+     // 좌우 이동 판단
+     if (deltaX > 0) {
+      // 우로 움직임
+      CONFIG.isFacingRight = false;
+    } else if (deltaX < 0) {
+      // 좌로 움직임
+      CONFIG.isFacingRight = true;
+    }
+
+
+    playerX += deltaX;
+    // 플레이어의 이동 범위 제한
+    if (playerX < 0) {
+      playerX = 0;
+    } else if (playerX > canvas.width - memberImage.width) {
+      playerX = canvas.width - memberImage.width;
+    }
+    playerTouchX = newTouchX;
+  }
+};
+
+const shoot = () => {
+    const missile = {
+        x: playerX + memberImage.width / 2,
+        y: playerY - 10,
+        width:40,
+        height:40,
+        size: 10,
+        speed: 5,
+        maxBounceHeight: canvas.height * 0.5, // 바운스할 최대 높이 설정
+        isBouncing: false, // 바운스 중인지 여부를 나타내는 플래그
+        startTime: performance.now(),
+        straight: true
+        
+    };
+    CONFIG.missiles.push(missile);
+};
+
+const updateMissiles = () => {
+    for (let i = CONFIG.missiles.length - 1; i >= 0; i--) {
+        const missile = CONFIG.missiles[i];
+        missile.y -= missile.speed;
+        if (missile.y < 0) {
+            CONFIG.missiles.splice(i, 1);
+        }
+    }
+};
+
+const drawMissiles = (timestamp) => {
+    for (const missile of CONFIG.missiles) {
+        ctx.save(); // 현재 그리기 상태 저장
+
+        // 미사일의 위치로 이동
+        ctx.translate(missile.x, missile.y);
+
+        // 회전 각도 업데이트
+        const elapsedTime = timestamp - missile.startTime;
+        if (elapsedTime <= 1000) {
+            missile.rotationAngle = (elapsedTime / 1000) * (Math.PI / 6); // 30도 = Math.PI / 6
+        } else if (elapsedTime <= 3000) {
+            const remainingTime = elapsedTime - 1000;
+            missile.rotationAngle = ((2000 - remainingTime) / 2000) * (Math.PI / 6);
+        }
+
+        // 회전 적용
+        ctx.rotate(missile.rotationAngle);
+        // 이미지 그리기
+        ctx.drawImage(missileImage, -missile.width / 2, -missile.height / 2, missile.width, missile.height);
+        ctx.restore(); // 이전 그리기 상태 복원
+    }
+};
+
+const drawEnemies = () => {
+    for (const enemy of CONFIG.enemies) {
+        ctx.drawImage(enemy.image, enemy.x, enemy.y, enemy.width, enemy.height);
+    }
+};
+
+
+const createEnemy = () => {
+    const enemyImage = enemyImages[Math.floor(Math.random() * 2)]; // 1 ~ 3 사이의 랜덤한 숫자
+    const straight = getRandomBoolean();
+    const enemy = {
+        x: Math.random() * (canvas.width - enemyImage.width),
+        y: -enemyImage.height,
+        width: enemyImage.width,
+        height: enemyImage.height,
+        speedX: Math.random() < 0.5 ? -CONFIG.enemySpeed : CONFIG.enemySpeed, // 좌우로 랜덤하게 움직임
+        speedY: CONFIG.enemySpeed, // 아래로 내려오는 속도
+        image: enemyImage,
+        straight:straight
+    };
+    CONFIG.enemies.push(enemy);
+};
+
+const updateEnemies = () => {
+    for (let i = CONFIG.enemies.length - 1; i >= 0; i--) {
+        const enemy = CONFIG.enemies[i];
+        // enemy.x += enemy.speedX;
+        enemy.y += enemy.speedY;
+
+
+        if (!enemy.straight) {
+            enemy.y += enemy.speedY;
+        } else{
+            enemy.x += enemy.speedX;
+            enemy.y += enemy.speedY;
+
+             // 중간에 방향 전환
+             if (enemy.y % 100 === 0) {
+                enemy.direction *= -1; // 방향을 반대로 전환
+            }
+
+            // 좌우 경계에 도달한 경우 방향 전환
+            if (enemy.x <= 0 || enemy.x + enemy.width >= canvas.width) {
+                enemy.speedX *= -1;
+            }
+            
+            
+        }
+
+        // 화면을 벗어난 적 제거
+        if (enemy.y > canvas.height) {
+            CONFIG.enemies.splice(i, 1);
+            lives = lives-1;
+            if(lives <= 0){
+                // CONFIG.gameOver = true;
+            }
+        }
+
+        // 미사일과 충돌 체크
+        for (let j = CONFIG.missiles.length - 1; j >= 0; j--) {
+            const missile = CONFIG.missiles[j];
+            if (
+                missile.x < enemy.x + enemy.width &&
+                missile.x + missile.width > enemy.x &&
+                missile.y < enemy.y + enemy.height &&
+                missile.y + missile.height > enemy.y
+            ) {
+                CONFIG.missiles.splice(j, 1); // 미사일 제거
+                CONFIG.enemies.splice(i, 1); // 적 제거
+                CONFIG.score += 1; // 스코어 증가
+                drawExplosion(missile.x, missile.y);
+            }
+        }
+    }
+};
+
+const drawExplosion = (x, y) => {
+  const explosionImage = new Image();
+  explosionImage.src = "/assets/bubleExplosion.png";
+  ctx.drawImage(explosionImage, x - explosionImage.width / 2, y - explosionImage.height / 2);
+};
+
+
+const getRandomBoolean = () => {
+  const randomNumber = Math.random(); // 0 이상 1 미만의 난수 생성
+  return randomNumber < 0.3; // 0.3보다 작으면 true, 그렇지 않으면 false 반환
+};
+
+
+// 플레이어 이동시 이미지 변경 로직
+const moveLeft = () => {
+    // 왼쪽 이동 로직 추가
+    CONFIG.isFacingRight = false; // 왼쪽으로 이동하면 이미지를 반전시킵니다.
+};
+
+const moveRight = () => {
+    // 오른쪽 이동 로직 추가
+    CONFIG.isFacingRight = true; // 오른쪽으로 이동하면 이미지를 반전시키지 않습니다.
+};
+
+
+const gameLevelUp = () => {
+    if(CONFIG.enemyResponeTime > 300)CONFIG.enemyResponeTime = CONFIG.enemyResponeTime-100
+    if(CONFIG.enemySpeed < 5) CONFIG.enemySpeed = CONFIG.enemySpeed+1;
+}
+
+const startGame = () => {
+    CONFIG.isCountdown = false;
+};
+
+let lastFrameTime = 0;
+let lastShootTime = 0;
+let lastLevelUpTime = 0;
+let lastEnemyTime = 0;
+const gameLoop = (timestamp) => { //################# Game Loop ######################
+    //경과 시간
+    const deltaTime = timestamp - lastFrameTime;
+    const elapsedTime = timestamp - startTime;
+
+    if (CONFIG.isCountdown) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        renderPlayer();
+        renderLives();
+        renderScore();
+        renderCountdown();
+
+        if (deltaTime >= 1000) {
+            CONFIG.countdown--;
+            lastFrameTime = timestamp;
+
+            if (CONFIG.countdown === 0) {
+                CONFIG.isCountdown = false;
+            }
+        }
+    } else {
+        //프레임 제어
+        
+        console.log()
+        if(CONFIG.gameOver){
+            return;
+        }
+        if (deltaTime >= CONFIG.FRAME_INTERVAL) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            renderPlayer();
+            renderLives();
+            renderScore();
+            updateMissiles();
+            updateEnemies();
+            drawEnemies();
+            drawMissiles(timestamp);
+            const elapsedTime = timestamp - startTime;
+            if (elapsedTime - lastShootTime >= CONFIG.shootInterval) {
+                shoot();
+                lastShootTime = elapsedTime;
+            }
+
+            // 1초에 한 번씩 로그 출력
+            if (timestamp - lastLevelUpTime >= CONFIG.levelUpTime) {
+                console.log('LEVEL UP');
+                lastLevelUpTime = timestamp;
+                gameLevelUp(); 
+            }
+
+            // 적 출현
+            if (timestamp - lastEnemyTime >= CONFIG.enemyResponeTime) {
+                lastEnemyTime = timestamp;
+                createEnemy();
+            }
+            
+        }
+    }
+    requestAnimationFrame(gameLoop);
+}
+
+const startTime = performance.now();
+requestAnimationFrame(gameLoop);
+
+
+// 터치 이벤트 처리
+canvas.addEventListener("touchstart", (event) => {
+    playerIsTouching = true;
+    playerTouchX = event.touches[0].clientX;
+});
+canvas.addEventListener("touchmove", (event) => {
+    if (playerIsTouching) {
+        updatePlayerPosition(event)
+    }
+});
+
+
 </script>
 </body>
 </html>
