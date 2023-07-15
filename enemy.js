@@ -19,6 +19,10 @@ class Enemy{
             this.lastMoveTime = 0; // 마지막 좌우 이동 시간
         }
 
+        setColldown(cooldown){
+            this.cooldown = cooldown; // 적 생성 간격
+        }
+
         moveDown() {
             for (let i = CONFIG.enemies.length - 1; i >= 0; i--) {
                 const enemy = CONFIG.enemies[i];

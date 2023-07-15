@@ -12,8 +12,6 @@ class Missile {
     }
     
 
-
-
     move() {
         this.y -= this.speed;
         // 미사일이 화면을 벗어나면 삭제합니다.

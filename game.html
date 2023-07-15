@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>슈팅 게임</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <style>
+        body {
+            overflow: hidden;
+            height: 100%;
+            margin: 0;
+            background-repeat: no-repeat;
+            display: flex;
+            justify-content: center; /* 가로 중앙 정렬 */
+            align-items: center; /* 세로 중앙 정렬 */
+        }
+        #canvas-container {
+            text-align: center;
+        }
+        #infoText {
+            color: var(--white, #F2F2F2);
+            text-align: center;
+            font-family: Silkscreen;
+            font-size: 20px;
+            font-style: normal;
+            font-weight: 700;
+            line-height: 110%; /* 22px */
+            letter-spacing: -2px;
+        }
+    </style>
+</head>
+<body>
+    <div id="fpsDisplay"></div>
+    <div id="canvas-container">
+        <canvas id="gameCanvas"></canvas>
+    </div>
+    <audio id="shoot-sound" autoplay src="/assets/buble.mp3"></audio>
+
+<script>
+const backgroundColor = '#CC65F3'
+
+// 캔버스 요소 가져오기
+var canvas = document.getElementById("gameCanvas");
+
+
+// 그래픽 컨텍스트 가져오기
+var context = canvas.getContext("2d");
+
+// 캔버스 크기 설정
+canvas.width = 1200;
+canvas.height = 1200;
+
+// 격자 무늬의 셀 크기
+var gridSize = 30;
+
+// 격자 무늬 그리기
+context.fillStyle = backgroundColor;
+context.fillRect(0, 0, canvas.width, canvas.height);
+context.strokeStyle = "white";
+context.lineWidth = 0.5;
+
+// 캔버스의 중앙 좌표 계산
+var centerX = canvas.width / 2;
+var centerY = canvas.height / 2;
+
+// 중앙 기준으로 격자 그리기
+var startX = centerX % gridSize;
+var startY = centerY % gridSize;
+
+// 수평 라인 그리기
+for (var y = startY; y < canvas.height; y += gridSize+1) {
+    context.beginPath();
+    context.moveTo(0, y);
+    context.lineTo(canvas.width, y);
+    context.stroke();
+}
+
+// 수직 라인 그리기
+for (var x = startX; x < canvas.width; x += gridSize) {
+    context.beginPath();
+    context.moveTo(x, 0);
+    context.lineTo(x, canvas.height);
+    context.stroke();
+}
+</script>
+</body>
+</html>
